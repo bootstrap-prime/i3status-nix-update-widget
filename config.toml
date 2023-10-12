@@ -1,0 +1,4 @@
+[settings]
+lock_path = "projects/nixos/config"
+inputs = [ "nixpkgs", "master", "unstable" ]
+threshold = 3
