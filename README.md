@@ -1,29 +1,18 @@
-# Foobar
+# i3status-nix-update-widget
 
-Foobar is a Python library for dealing with word pluralization.
+ An i3status-rust widget to inform you of the age of your nix flake lockfile. Only intended for use with a nix flake, as it is patched at build time with the date of the most recent git commit in that lockfile.
 
 ## Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
-
-```bash
-pip install foobar
+put something like
+``` nix
+programs.i3status-rust.bars.<name>.blocks = [{
+    block = "custom";
+    command = "${nix-update-widget.${system}.default}/bin/i3status-nix-update-widget";
+    interval = 3000;
+}];
 ```
-
-## Usage
-
-```python
-import foobar
-
-foobar.pluralize('word') # returns 'words'
-foobar.pluralize('goose') # returns 'geese'
-foobar.singularize('phenomena') # returns 'phenomenon'
-```
-
-## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-Please make sure to update tests as appropriate.
+in your home-manager config.
 
 ## License
 This readme based on [makeareadme](https://www.makeareadme.com/) 
