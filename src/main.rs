@@ -4,7 +4,7 @@
 // simplest solution: when the system gets rebuilt it takes information from the flake.lock and
 // commits it. the module for this will take that info and put it in here to include it as a constant.
 
-include!("../modified_date.rs");
+include!("modified_data.rs");
 
 #[derive(serde::Serialize)]
 pub enum State {

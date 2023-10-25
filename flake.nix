@@ -30,30 +30,21 @@
           (inputs.crane.mkLib pkgs).overrideToolchain rust-custom-toolchain;
 
       in {
-        # devShell = pkgs.mkShell {
-        #   buildInputs = with pkgs; [ ];
+        packages.default = pkgs.lib.makeOverridable ({
 
-        #   nativeBuildInputs = with pkgs; [
-        #     # get current rust toolchain defaults (this includes clippy and rustfmt)
-        #     rust-custom-toolchain
-
-        #     cargo-edit
-        #   ];
-
-        #   # fetch with cli instead of native
-        #   CARGO_NET_GIT_FETCH_WITH_CLI = "true";
-        #   RUST_BACKTRACE = 1;
-        # };
-
-        packages.default = (self.packages.${system}.defaultthing { });
-
-        packages.defaultthing =
-          { flakelock ? ./flake.lock, threshold ? 14, icon ? "cogs", ... }:
+          # the location of the flake lock to get a bearing on
+          flakelock
+          # how old the flake can be before it is out of date
+          , threshold
+          # the i3status icon the bar will be displayed with
+          , icon, ... }:
           with pkgs;
           let
-            # flakelock = ./flake.lock;
-            # threshold = 14;
-            # icon = "cogs";
+            # read in flake.lock from location
+            # iterate through and find the most recent modified date in all inputs
+            # the user is expected to not update only specific entries in the flake so
+            # we can just take the most recent thing as an indication of when the flake was last updated
+            # and we're going to ignore that sometimes flakes just don't receive updates because nixpkgs is being constantly updated
             lockfile = builtins.fromJSON (builtins.readFile flakelock);
             recenttime = builtins.head (lib.sort (a: b: a > b)
               (map (key: lockfile.nodes.${key}.locked.lastModified or 0)
@@ -67,105 +58,50 @@
               const STATUS_ICON: &str = "${icon}";
             '';
 
-            cargoArtifacts = craneLib.buildDepsOnly {
-              src = ./.;
-              buildInputs = [ ];
-            };
-          in craneLib.buildPackage {
-            inherit cargoArtifacts;
-            src = ./.;
-            buildInputs = [ ];
-            patchPhase = ''
-              cp ${config_file} $src/modified_data.rs
+            src = pkgs.runCommand "merge-sources" { } ''
+              mkdir $out
+              cp -r ${./.}/* $out
+              chmod +wr $out
+              chmod +wr $out/src
+              cp ${config_file} $out/src/modified_data.rs
             '';
+
+            cargoArtifacts = craneLib.buildDepsOnly { inherit src; };
+          in craneLib.buildPackage { inherit cargoArtifacts src; }) {
+            flakelock = ./flake.lock;
+            threshold = 14;
+            icon = "cogs";
           };
 
-        # nixosModule = { config, lib, pkgs, ... }:
-        #   with lib;
-        #   let cfg = config.programs.updatewidget;
-        #   in {
-        #     options.programs.updatewidget = {
-        #       enable = mkEnableOption "Enables the nix flake update widget";
+        checks = let
+          src = ./.;
 
-        #       flakelock = mkOption {
-        #         type = types.str;
-        #         example = "./flake.lock";
-        #         description =
-        #           "the location of the flake lock to get a bearing on";
-        #       };
+          cargoArtifacts = craneLib.buildDepsOnly { inherit src; };
+          build-tests = craneLib.buildPackage { inherit cargoArtifacts src; };
+        in {
+          inherit build-tests;
 
-        #       icon = mkOption {
-        #         type = types.str;
-        #         default = "cogs";
-        #         description = "the i3status icon to place next to the age.";
-        #       };
+          # # Run clippy (and deny all warnings) on the crate source,
+          # # again, resuing the dependency artifacts from above.
+          # #
+          # # Note that this is done as a separate derivation so that
+          # # we can block the CI if there are issues here, but not
+          # # prevent downstream consumers from building our crate by itself.
+          # my-crate-clippy = craneLib.cargoClippy {
+          #   inherit cargoArtifacts src;
+          #   cargoClippyExtraArgs = "-- --deny warnings";
+          # };
 
-        #       threshold = mkOption {
-        #         type = types.int;
-        #         example = 3;
-        #         description =
-        #           "the number of days after which the flake is out of date";
-        #       };
-        #     };
+          # Check formatting
+          my-crate-fmt = craneLib.cargoFmt { inherit src; };
 
-        #     config = let
-        #       # read in flake.lock from location
-        #       # iterate through and find the most recent modified date in all inputs
-        #       # the user is expected to not update only specific entries in the flake so
-        #       # we can just take the most recent thing as an indication of when the flake was last updated
-        #       # and we're going to ignore that sometimes flakes just don't receive updates because nixpkgs is being constantly updated
-
-        #     in mkIf cfg.enable {
-
-        #     };
-        #   };
-
-        # checks = let
-        #   src = ./.;
-
-        #   cargoArtifacts = craneLib.buildDepsOnly {
-        #     inherit src;
-        #     buildInputs = with pkgs; [ openssl pkg-config ];
-        #   };
-        #   build-tests = craneLib.buildPackage {
-        #     inherit cargoArtifacts src;
-        #     buildInputs = with pkgs; [ openssl pkg-config capnproto ];
-        #   };
-        # in {
-        #   inherit build-tests;
-
-        #   # Run clippy (and deny all warnings) on the crate source,
-        #   # again, resuing the dependency artifacts from above.
-        #   #
-        #   # Note that this is done as a separate derivation so that
-        #   # we can block the CI if there are issues here, but not
-        #   # prevent downstream consumers from building our crate by itself.
-        #   my-crate-clippy = craneLib.cargoClippy {
-        #     inherit cargoArtifacts src;
-        #     cargoClippyExtraArgs = "-- --deny warnings";
-
-        #     buildInputs = with pkgs; [ openssl pkg-config capnproto ];
-        #   };
-
-        #   # Check formatting
-        #   my-crate-fmt = craneLib.cargoFmt { inherit src; };
-
-        #   # Audit dependencies
-        #   my-crate-audit = craneLib.cargoAudit {
-        #     inherit src;
-        #     advisory-db = inputs.advisory-db;
-        #     cargoAuditExtraArgs = "--ignore RUSTSEC-2020-0071";
-        #   };
-
-        #   # Run tests with cargo-nextest
-        #   my-crate-nextest = craneLib.cargoNextest {
-        #     inherit cargoArtifacts src;
-        #     partitions = 1;
-        #     partitionType = "count";
-
-        #     buildInputs = with pkgs; [ openssl pkg-config capnproto ];
-        #   };
-        # };
+          # # Run tests with cargo-nextest
+          # my-crate-nextest = craneLib.cargoNextest {
+          #   inherit cargoArtifacts src;
+          #   partitions = 1;
+          #   partitionType = "count";
+          # };
+        };
 
       });
 }
