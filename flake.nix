@@ -63,6 +63,7 @@
               cp -r ${./.}/* $out
               chmod +wr $out
               chmod +wr $out/src
+              chmod +wr $out/src/modified_data.rs
               cp ${config_file} $out/src/modified_data.rs
             '';
 
@@ -81,26 +82,26 @@
         in {
           inherit build-tests;
 
-          # # Run clippy (and deny all warnings) on the crate source,
-          # # again, resuing the dependency artifacts from above.
-          # #
-          # # Note that this is done as a separate derivation so that
-          # # we can block the CI if there are issues here, but not
-          # # prevent downstream consumers from building our crate by itself.
-          # my-crate-clippy = craneLib.cargoClippy {
-          #   inherit cargoArtifacts src;
-          #   cargoClippyExtraArgs = "-- --deny warnings";
-          # };
+          # Run clippy (and deny all warnings) on the crate source,
+          # again, resuing the dependency artifacts from above.
+          #
+          # Note that this is done as a separate derivation so that
+          # we can block the CI if there are issues here, but not
+          # prevent downstream consumers from building our crate by itself.
+          my-crate-clippy = craneLib.cargoClippy {
+            inherit cargoArtifacts src;
+            cargoClippyExtraArgs = "-- --deny warnings";
+          };
 
           # Check formatting
           my-crate-fmt = craneLib.cargoFmt { inherit src; };
 
-          # # Run tests with cargo-nextest
-          # my-crate-nextest = craneLib.cargoNextest {
-          #   inherit cargoArtifacts src;
-          #   partitions = 1;
-          #   partitionType = "count";
-          # };
+          # Run tests with cargo-nextest
+          my-crate-nextest = craneLib.cargoNextest {
+            inherit cargoArtifacts src;
+            partitions = 1;
+            partitionType = "count";
+          };
         };
 
       });

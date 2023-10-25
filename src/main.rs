@@ -22,7 +22,6 @@ pub struct BarCommand {
 }
 
 use anyhow::Context;
-use chrono;
 
 fn main() -> anyhow::Result<()> {
     let now = chrono::Utc::now();
