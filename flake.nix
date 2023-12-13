@@ -58,17 +58,14 @@
               const STATUS_ICON: &str = "${icon}";
             '';
 
-            src = pkgs.runCommand "merge-sources" { } ''
-              mkdir $out
-              cp -r ${./.}/* $out
-              chmod +wr $out
-              chmod +wr $out/src
-              chmod +wr $out/src/modified_data.rs
-              cp ${config_file} $out/src/modified_data.rs
+            src = ./.;
+
+            prePatch = ''
+              cp ${config_file} ./src/modified_data.rs
             '';
 
             cargoArtifacts = craneLib.buildDepsOnly { inherit src; };
-          in craneLib.buildPackage { inherit cargoArtifacts src; }) {
+          in craneLib.buildPackage { inherit cargoArtifacts src prePatch; }) {
             flakelock = ./flake.lock;
             threshold = 14;
             icon = "cogs";
