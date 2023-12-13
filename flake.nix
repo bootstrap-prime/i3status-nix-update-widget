@@ -1,7 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
-    nixpkgs-21.url = "github:NixOS/nixpkgs/nixos-21.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url = "github:numtide/flake-utils";
 
@@ -15,7 +14,7 @@
     };
   };
 
-  outputs = inputs@{ self, flake-utils, nixpkgs, rust-overlay, nixpkgs-21, crane
+  outputs = inputs@{ self, flake-utils, nixpkgs, rust-overlay, crane
     , advisory-db, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
@@ -33,11 +32,12 @@
         packages.default = pkgs.lib.makeOverridable ({
 
           # the location of the flake lock to get a bearing on
-          flakelock
+          flakelock ? null
           # how old the flake can be before it is out of date
-          , threshold
+          , threshold ? 14
           # the i3status icon the bar will be displayed with
-          , icon, ... }:
+          , icon ? "cogs"
+          }:
           with pkgs;
           let
             # read in flake.lock from location
@@ -45,7 +45,8 @@
             # the user is expected to not update only specific entries in the flake so
             # we can just take the most recent thing as an indication of when the flake was last updated
             # and we're going to ignore that sometimes flakes just don't receive updates because nixpkgs is being constantly updated
-            lockfile = builtins.fromJSON (builtins.readFile flakelock);
+            # default to a really old lockfile content (1s unix timestamp) so it's obvious if you forget to override!
+            lockfile = if flakelock != null then builtins.fromJSON (builtins.readFile flakelock) else { nodes.nixpkgs.locked.lastModified = 1; };
             recenttime = builtins.head (lib.sort (a: b: a > b)
               (map (key: lockfile.nodes.${key}.locked.lastModified or 0)
                 (lib.attrNames lockfile.nodes)));
@@ -58,21 +59,14 @@
               const STATUS_ICON: &str = "${icon}";
             '';
 
-            src = pkgs.runCommand "merge-sources" { } ''
-              mkdir $out
-              cp -r ${./.}/* $out
-              chmod +wr $out
-              chmod +wr $out/src
-              chmod +wr $out/src/modified_data.rs
-              cp ${config_file} $out/src/modified_data.rs
+            src = ./.;
+
+            prePatch = ''
+              cp ${config_file} ./src/modified_data.rs
             '';
 
             cargoArtifacts = craneLib.buildDepsOnly { inherit src; };
-          in craneLib.buildPackage { inherit cargoArtifacts src; }) {
-            flakelock = ./flake.lock;
-            threshold = 14;
-            icon = "cogs";
-          };
+          in craneLib.buildPackage { inherit cargoArtifacts src prePatch; }) { };
 
         checks = let
           src = ./.;
