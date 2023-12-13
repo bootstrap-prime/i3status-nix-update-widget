@@ -1,7 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
-    nixpkgs-21.url = "github:NixOS/nixpkgs/nixos-21.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url = "github:numtide/flake-utils";
 
@@ -15,7 +14,7 @@
     };
   };
 
-  outputs = inputs@{ self, flake-utils, nixpkgs, rust-overlay, nixpkgs-21, crane
+  outputs = inputs@{ self, flake-utils, nixpkgs, rust-overlay, crane
     , advisory-db, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
