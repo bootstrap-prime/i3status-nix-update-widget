@@ -21,12 +21,23 @@
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
 
+        # craneLib can automatically set pname and version from Cargo.toml
+        # but this relies on IFD so it's better not to rely on that
+        # https://crane.dev/faq/ifd-error.html#nix-is-complaining-about-ifd-import-from-derivation
+        pname = "i3status-nix-update-widget";
+        version = "0.1.0";
+        src = ./.;
+
         rust-custom-toolchain = (pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" ];
         });
 
         craneLib =
           (inputs.crane.mkLib pkgs).overrideToolchain rust-custom-toolchain;
+
+        cargoArtifacts = craneLib.buildDepsOnly {
+          inherit pname version src;
+        };
 
       in {
         packages.default = pkgs.lib.makeOverridable ({
@@ -59,22 +70,14 @@
               const STATUS_ICON: &str = "${icon}";
             '';
 
-            src = ./.;
-
             prePatch = ''
               cp ${config_file} ./src/modified_data.rs
             '';
 
-            cargoArtifacts = craneLib.buildDepsOnly { inherit src; };
-          in craneLib.buildPackage { inherit cargoArtifacts src prePatch; }) { };
+          in craneLib.buildPackage { inherit cargoArtifacts pname version src prePatch; }) { };
 
-        checks = let
-          src = ./.;
-
-          cargoArtifacts = craneLib.buildDepsOnly { inherit src; };
-          build-tests = craneLib.buildPackage { inherit cargoArtifacts src; };
-        in {
-          inherit build-tests;
+        checks = {
+          build-tests = craneLib.buildPackage { inherit pname version cargoArtifacts src; };
 
           # Run clippy (and deny all warnings) on the crate source,
           # again, resuing the dependency artifacts from above.
@@ -83,16 +86,16 @@
           # we can block the CI if there are issues here, but not
           # prevent downstream consumers from building our crate by itself.
           my-crate-clippy = craneLib.cargoClippy {
-            inherit cargoArtifacts src;
+            inherit cargoArtifacts pname version src;
             cargoClippyExtraArgs = "-- --deny warnings";
           };
 
           # Check formatting
-          my-crate-fmt = craneLib.cargoFmt { inherit src; };
+          my-crate-fmt = craneLib.cargoFmt { inherit pname version src; };
 
           # Run tests with cargo-nextest
           my-crate-nextest = craneLib.cargoNextest {
-            inherit cargoArtifacts src;
+            inherit cargoArtifacts pname version src;
             partitions = 1;
             partitionType = "count";
           };
