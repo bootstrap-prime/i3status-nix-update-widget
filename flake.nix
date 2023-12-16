@@ -79,6 +79,10 @@
         checks = {
           build-tests = craneLib.buildPackage { inherit pname version cargoArtifacts src; };
 
+          audit = craneLib.cargoAudit {
+            inherit pname version src advisory-db;
+          };
+
           # Run clippy (and deny all warnings) on the crate source,
           # again, resuing the dependency artifacts from above.
           #
