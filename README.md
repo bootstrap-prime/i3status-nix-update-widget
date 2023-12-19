@@ -8,7 +8,9 @@ put something like
 ``` nix
 programs.i3status-rust.bars.<name>.blocks = [{
     block = "custom";
-    command = "${nix-update-widget.${system}.default}/bin/i3status-nix-update-widget";
+    command = "${nix-update-widget.packages.${system}.default.override {
+        flakelock = ./flake.lock;
+    }}/bin/i3status-nix-update-widget";
     interval = 3000;
 }];
 ```
