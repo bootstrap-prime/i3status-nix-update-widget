@@ -6,6 +6,8 @@
 
 include!("modified_data.rs");
 
+mod reboot_check;
+
 #[derive(serde::Serialize)]
 pub enum State {
     Info,
@@ -31,7 +33,7 @@ fn main() -> anyhow::Result<()> {
 
     let duration_days = now.signed_duration_since(time).num_days();
 
-    let status: State;
+    let mut status: State;
 
     if duration_days >= OUT_OF_DATE_THRESHOLD {
         // it is critical that you update
@@ -46,10 +48,24 @@ fn main() -> anyhow::Result<()> {
         unreachable!("all possible values of duration_days are handled");
     }
 
+    let mut text = format!("Age: {}", duration_days);
+
+    // Check if reboot is needed due to kernel/module version changes
+    if let Ok(mismatches) = reboot_check::check_reboot_needed() {
+        if !mismatches.is_empty() {
+            status = State::Critical;
+            let reboot_info: Vec<String> = mismatches
+                .iter()
+                .map(|m| format!("{} {}→{}", m.name, m.booted, m.current))
+                .collect();
+            text = format!("{} | Reboot: {}", text, reboot_info.join(", "));
+        }
+    }
+
     let code = BarCommand {
         icon: STATUS_ICON.to_string(),
         state: status,
-        text: format!("Age: {}", duration_days),
+        text,
     };
 
     println!(
